@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Khazanah Seni - 识字配对游戏</title>
+    <style>
+        /* --------------------------------------------------
+           1. 基础重置与字体 / 全局变量
+           -------------------------------------------------- */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        :root {
+            --bg-dark: #1a1b35;
+            --card-bg: #2a2c4e;
+            --primary-yellow: #ffcf25;
+            --primary-orange: #ff6b35;
+            --primary-pink: #ff477e;
+            --primary-green: #06d6a0;
+            --primary-blue: #118ab2;
+            --text-light: #ffffff;
+            --font-family: 'Comic Sans MS', 'Chalkboard SE', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image: 
+                radial-gradient(circle at 15% 20%, rgba(255, 71, 126, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 85% 80%, rgba(6, 214, 160, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 50% 50%, rgba(255, 207, 37, 0.08) 0%, transparent 60%);
+            color: var(--text-light);
+            font-family: var(--font-family);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* 涂鸦风背景小星星纹理 */
+        body::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><circle cx="20" cy="20" r="2" fill="%23ffffff" opacity="0.2"/><circle cx="80" cy="40" r="1.5" fill="%23ffcf25" opacity="0.3"/><circle cx="40" cy="70" r="2.5" fill="%23ff477e" opacity="0.2"/><path d="M70,15 L72,20 L77,20 L73,23 L75,28 L70,25 L65,28 L67,23 L63,20 L68,20 Z" fill="%2306d6a0" opacity="0.15"/></svg>');
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 960px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* --------------------------------------------------
+           2. 顶部标题区域 (Khazanah Seni 艺术风格)
+           -------------------------------------------------- */
+        header {
+            text-align: center;
+            margin-bottom: 15px;
+            width: 100%;
+        }
+
+        .main-title {
+            font-size: 2.8rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            background: linear-gradient(45deg, #ffcf25, #ff6b35, #ff477e, #06d6a0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0px 4px 10px rgba(0,0,0,0.3);
+            display: inline-block;
+            position: relative;
+            padding: 0 10px;
+        }
+
+        /* 画笔笔触线条装饰 */
+        .brush-stroke {
+            height: 8px;
+            width: 100%;
+            max-width: 280px;
+            margin: 4px auto 0;
+            background: linear-gradient(90deg, var(--primary-pink), var(--primary-yellow), var(--primary-green));
+            border-radius: 20px;
+            transform: rotate(-1.5deg);
+            box-shadow: 0 2px 8px rgba(255, 71, 126, 0.4);
+        }
+
+        .sub-title {
+            font-size: 1.1rem;
+            color: #a0a5d0;
+            margin-top: 8px;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        /* --------------------------------------------------
+           3. 页面视图切换 (Cover / Game / Result)
+           -------------------------------------------------- */
+        .view {
+            display: none;
+            width: 100%;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex-grow: 1;
+        }
+
+        .view.active {
+            display: flex;
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.96); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* --------------------------------------------------
+           4. 开始页面 (Cover)
+           -------------------------------------------------- */
+        .cover-card {
+            background: rgba(42, 44, 78, 0.85);
+            border: 4px dashed var(--primary-yellow);
+            border-radius: 30px;
+            padding: 40px 30px;
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cover-icon-group {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 25px 0;
+        }
+
+        .cover-mini-card {
+            width: 80px;
+            height: 80px;
+            background: #3b3e66;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 3px solid #ffcf25;
+            box-shadow: 0 6px 0 #1a1b35;
+            transform: rotate(-5deg);
+        }
+        .cover-mini-card:nth-child(2) {
+            transform: rotate(3deg);
+            border-color: var(--primary-pink);
+        }
+        .cover-mini-card:nth-child(3) {
+            transform: rotate(-3deg);
+            border-color: var(--primary-green);
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, var(--primary-yellow), var(--primary-orange));
+            color: #1a1b35;
+            font-size: 1.8rem;
+            font-weight: 900;
+            padding: 18px 45px;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 8px 0 #c74d00, 0 15px 25px rgba(255, 107, 53, 0.4);
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        .btn-start:hover {
+            transform: translateY(-3deg);
+            box-shadow: 0 11px 0 #c74d00, 0 18px 30px rgba(255, 107, 53, 0.5);
+        }
+
+        .btn-start:active {
+            transform: translateY(4deg);
+            box-shadow: 0 4px 0 #c74d00, 0 8px 15px rgba(255, 107, 53, 0.4);
+        }
+
+        /* --------------------------------------------------
+           5. 游戏配对主页面
+           -------------------------------------------------- */
+        .game-board {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            width: 100%;
+            max-width: 800px;
+            margin: 15px 0;
+        }
+
+        .column {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* 大卡片通用样式 */
+        .card {
+            background: var(--card-bg);
+            border-radius: 24px;
+            border: 4px solid #3d416e;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.2s, box-shadow 0.2s;
+            box-shadow: 0 8px 0 #121324, 0 10px 20px rgba(0,0,0,0.3);
+            min-height: 120px;
+        }
+
+        /* 图片卡片 */
+        .card-img {
+            height: 130px;
+            border-color: #ffcf25;
+        }
+        .card-img svg {
+            width: 100%;
+            height: 100%;
+            max-height: 100px;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+        }
+
+        /* 汉字卡片 */
+        .card-text {
+            height: 130px;
+            border-color: #06d6a0;
+            font-size: 3.2rem;
+            font-weight: 900;
+            color: #ffffff;
+            letter-spacing: 4px;
+            text-shadow: 0 4px 0 #121324;
+        }
+
+        /* 卡片交互状态 */
+        .card:hover {
+            transform: translateY(-4deg);
+        }
+
+        .card.selected {
+            border-color: #ff477e !important;
+            box-shadow: 0 0 25px rgba(255, 71, 126, 0.8), 0 8px 0 #121324;
+            transform: scale(1.03);
+            background: #363963;
+        }
+
+        .card.matched {
+            border-color: var(--primary-green) !important;
+            background: rgba(6, 214, 160, 0.15);
+            opacity: 0.85;
+            cursor: default;
+            box-shadow: 0 4px 0 #121324;
+            transform: none !important;
+        }
+
+        .card.matched::after {
+            content: "✓";
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 1.8rem;
+            color: var(--primary-green);
+            font-weight: bold;
+        }
+
+        /* 错误抖动动画 */
+        .shake {
+            animation: shakeAnim 0.5s ease-in-out;
+            border-color: #ff3366 !important;
+        }
+
+        @keyframes shakeAnim {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-10px) rotate(-2deg); }
+            40%, 80% { transform: translateX(10px) rotate(2deg); }
+        }
+
+        /* 进度提示栏 */
+        .progress-bar-container {
+            width: 100%;
+            max-width: 400px;
+            height: 16px;
+            background: #2a2c4e;
+            border-radius: 20px;
+            overflow: hidden;
+            border: 2px solid #3d416e;
+            margin-top: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--primary-yellow), var(--primary-green));
+            transition: width 0.4s ease;
+            border-radius: 20px;
+        }
+
+        /* --------------------------------------------------
+           6. 结算页面 (Result Modal / View)
+           -------------------------------------------------- */
+        .result-card {
+            background: rgba(42, 44, 78, 0.95);
+            border: 5px solid var(--primary-yellow);
+            border-radius: 35px;
+            padding: 40px 30px;
+            text-align: center;
+            max-width: 480px;
+            width: 100%;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+            animation: popUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popUp {
+            from { transform: scale(0.6); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        /* 勋章SVG与动画 */
+        .medal-box {
+            width: 140px;
+            height: 140px;
+            margin: 0 auto 20px;
+            animation: floatMedal 3s ease-in-out infinite;
+        }
+
+        @keyframes floatMedal {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-12px) rotate(3deg); }
+        }
+
+        .result-title {
+            font-size: 2.5rem;
+            color: var(--primary-yellow);
+            font-weight: 900;
+            margin-bottom: 10px;
+            text-shadow: 0 3px 0 #000;
+        }
+
+        .result-subtitle {
+            font-size: 1.3rem;
+            color: #ffffff;
+            margin-bottom: 25px;
+        }
+
+        /* --------------------------------------------------
+           7. 粒子与表扬飘字特效
+           -------------------------------------------------- */
+        .praise-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            font-size: 3.5rem;
+            font-weight: 900;
+            color: var(--primary-yellow);
+            text-shadow: 0 5px 0 #ff6b35, 0 10px 20px rgba(0,0,0,0.5);
+            pointer-events: none;
+            z-index: 100;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
+            opacity: 0;
+            white-space: nowrap;
+        }
+
+        .praise-popup.show {
+            transform: translate(-50%, -60%) scale(1.2);
+            opacity: 1;
+        }
+
+        canvas#particle-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 99;
+        }
+
+        /* --------------------------------------------------
+           8. 响应式适配 (手机 / 平板 / Canva 嵌入)
+           -------------------------------------------------- */
+        @media (max-width: 600px) {
+            .main-title { font-size: 2rem; }
+            .sub-title { font-size: 0.9rem; }
+            .game-board { gap: 12px; }
+            .card { min-height: 100px; padding: 10px; }
+            .card-img { height: 100px; }
+            .card-text { height: 100px; font-size: 2.2rem; }
+            .cover-card { padding: 25px 15px; }
+            .btn-start { font-size: 1.4rem; padding: 14px 30px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 粒子特效画布 -->
+    <canvas id="particle-canvas"></canvas>
+
+    <!-- 配对成功弹出夸奖语 -->
+    <div id="praise-text" class="praise-popup">太棒了！🌟</div>
+
+    <div class="container">
+        <!-- 顶部固定标题 -->
+        <header>
+            <div class="main-title">Khazanah Seni</div>
+            <div class="brush-stroke"></div>
+            <div class="sub-title">Master Bentuk & Ton Warna</div>
+        </header>
+
+        <!-- 1. 封面开始页面 -->
+        <div id="cover-view" class="view active">
+            <div class="cover-card">
+                <h2 style="font-size: 1.8rem; color: #fff; margin-bottom: 10px;">趣味识字配对</h2>
+                <p style="color: #a0a5d0; font-size: 1rem;">拖动或点击图片，配对正确的汉字吧！</p>
+                
+                <div class="cover-icon-group">
+                    <div class="cover-mini-card">
+                        <svg viewBox="0 0 100 100" width="50" height="50">
+                            <rect x="15" y="15" width="70" height="50" rx="6" fill="#118ab2" stroke="#fff" stroke-width="3"/>
+                            <path d="M 10 75 L 90 75 L 85 85 L 15 85 Z" fill="#06d6a0"/>
+                        </svg>
+                    </div>
+                    <div class="cover-mini-card">
+                        <svg viewBox="0 0 100 100" width="50" height="50">
+                            <circle cx="50" cy="50" r="35" fill="#ffcf25"/>
+                            <path d="M 20 70 Q 50 30 80 70" fill="#ff6b35"/>
+                        </svg>
+                    </div>
+                    <div class="cover-mini-card">
+                        <svg viewBox="0 0 100 100" width="50" height="50">
+                            <path d="M 50 15 Q 85 45 70 85 Q 50 75 30 85 Q 15 45 50 15 Z" fill="#ff477e"/>
+                        </svg>
+                    </div>
+                </div>
+
+                <button class="btn-start" onclick="startGame()">
+                    开始游戏 🎨
+                </button>
+            </div>
+        </div>
+
+        <!-- 2. 配对游戏主页面 -->
+        <div id="game-view" class="view">
+            <div class="game-board">
+                <!-- 左侧：图片列表 -->
+                <div class="column" id="left-column"></div>
+                <!-- 右侧：汉字列表 -->
+                <div class="column" id="right-column"></div>
+            </div>
+
+            <!-- 进度条 -->
+            <div class="progress-bar-container">
+                <div id="progress-fill" class="progress-fill"></div>
+            </div>
+        </div>
+
+        <!-- 3. 结算恭喜页面 -->
+        <div id="result-view" class="view">
+            <div class="result-card">
+                <div class="medal-box">
+                    <!-- 闪耀画笔艺术勋章 SVG -->
+                    <svg viewBox="0 0 120 120" width="100%" height="100%">
+                        <circle cx="60" cy="60" r="50" fill="#ffcf25" stroke="#ff6b35" stroke-width="6"/>
+                        <circle cx="60" cy="60" r="40" fill="#ff477e"/>
+                        <!-- 勋章五角星与调色板图案 -->
+                        <path d="M60 28 L68 45 L87 47 L73 60 L77 78 L60 69 L43 78 L47 60 L33 47 L52 45 Z" fill="#ffffff"/>
+                        <path d="M25 10 L45 35 M95 10 L75 35" stroke="#06d6a0" stroke-width="8" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <div class="result-title">太棒了！完成挑战！</div>
+                <div class="result-subtitle">你成功配对了所有的词汇！🎉</div>
+                <button class="btn-start" onclick="startGame()">
+                    再玩一次 🔄
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* --------------------------------------------------
+           1. 声音合成器 (Web Audio API - 无需外部音频文件)
+           -------------------------------------------------- */
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            // 配对成功：欢快的上升阶梯音效
+            playSuccess() {
+                this.init();
+                const notes = [261.63, 329.63, 392.00, 523.25]; // C4, E4, G4, C5
+                notes.forEach((freq, index) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime + index * 0.08);
+                    
+                    gain.gain.setValueAtTime(0.3, this.ctx.currentTime + index * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + index * 0.08 + 0.2);
+                    
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    
+                    osc.start(this.ctx.currentTime + index * 0.08);
+                    osc.stop(this.ctx.currentTime + index * 0.08 + 0.2);
+                });
+            }
+
+            // 配对错误：柔和低沉的提示音效
+            playError() {
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                
+                osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(110, this.ctx.currentTime + 0.25);
+                
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.25);
+            }
+
+            // 通关大胜音效
+            playWin() {
+                this.init();
+                const now = this.ctx.currentTime;
+                const winNotes = [330, 392, 659, 523, 587, 659];
+                winNotes.forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, now + i * 0.12);
+                    gain.gain.setValueAtTime(0.3, now + i * 0.12);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.3);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + i * 0.12);
+                    osc.stop(now + i * 0.12 + 0.3);
+                });
+            }
+        }
+
+        const sounds = new SoundFX();
+
+        /* --------------------------------------------------
+           2. 核心数据与纯 SVG 绘图 (涂鸦艺术风格)
+           -------------------------------------------------- */
+        const GAME_DATA = [
+            {
+                id: 'computer',
+                word: '电脑',
+                // SVG 矢量插图：电脑
+                svg: `<svg viewBox="0 0 120 100">
+                    <!-- 显示器外壳 -->
+                    <rect x="15" y="10" width="90" height="60" rx="10" fill="#2b2d42" stroke="#ffcf25" stroke-width="4"/>
+                    <!-- 屏幕 -->
+                    <rect x="22" y="17" width="76" height="46" rx="6" fill="#118ab2"/>
+                    <!-- 屏幕涂鸦代码/图案 -->
+                    <path d="M 30 30 L 50 30 M 30 40 L 65 40 M 30 50 L 45 50" stroke="#06d6a0" stroke-width="4" stroke-linecap="round"/>
+                    <circle cx="75" cy="45" r="8" fill="#ff477e"/>
+                    <!-- 底座 -->
+                    <path d="M 50 70 L 70 70 L 75 82 L 45 82 Z" fill="#8d99ae"/>
+                    <rect x="30" y="82" width="60" height="8" rx="4" fill="#d90429"/>
+                </svg>`
+            },
+            {
+                id: 'beach',
+                word: '沙滩',
+                // SVG 矢量插图：沙滩与椰树
+                svg: `<svg viewBox="0 0 120 100">
+                    <!-- 太阳 -->
+                    <circle cx="90" cy="25" r="14" fill="#ffcf25"/>
+                    <!-- 海洋 -->
+                    <path d="M 0 55 Q 30 50 60 55 T 120 55 L 120 90 L 0 90 Z" fill="#118ab2"/>
+                    <!-- 沙滩斜坡 -->
+                    <path d="M 0 65 Q 40 60 120 75 L 120 95 L 0 95 Z" fill="#ffb703"/>
+                    <!-- 椰子树树干 -->
+                    <path d="M 30 85 Q 35 55 25 30" stroke="#a96636" stroke-width="7" fill="none" stroke-linecap="round"/>
+                    <!-- 椰树叶子 -->
+                    <path d="M 25 30 Q 5 25 0 35 M 25 30 Q 15 10 30 5 M 25 30 Q 45 15 50 30 M 25 30 Q 40 40 45 50" stroke="#06d6a0" stroke-width="5" fill="none" stroke-linecap="round"/>
+                </svg>`
+            },
+            {
+                id: 'shell',
+                word: '贝壳',
+                // SVG 矢量插图：粉色贝壳
+                svg: `<svg viewBox="0 0 120 100">
+                    <!-- 贝壳主体 -->
+                    <path d="M 60 15 Q 100 25 95 65 Q 80 85 60 85 Q 40 85 25 65 Q 20 25 60 15 Z" fill="#ff477e" stroke="#ffffff" stroke-width="3"/>
+                    <!-- 贝壳纹理 -->
+                    <path d="M 60 85 L 60 20 M 60 85 L 40 28 M 60 85 L 80 28 M 60 85 L 26 45 M 60 85 L 94 45" stroke="#ff9ebb" stroke-width="3" stroke-linecap="round"/>
+                    <!-- 贝壳底座 -->
+                    <path d="M 45 82 Q 60 78 75 82 L 70 90 Q 60 86 50 90 Z" fill="#ffcf25"/>
+                </svg>`
+            }
+        ];
+
+        /* --------------------------------------------------
+           3. 游戏逻辑与状态管理
+           -------------------------------------------------- */
+        let selectedImgCard = null;
+        let selectedTextCard = null;
+        let matchedCount = 0;
+        const totalPairs = GAME_DATA.length;
+
+        // 打乱数组辅助函数
+        function shuffle(array) {
+            return [...array].sort(() => Math.random() - 0.5);
+        }
+
+        // 切换页面视图
+        function switchView(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+        }
+
+        // 初始化 / 开始游戏
+        function startGame() {
+            matchedCount = 0;
+            selectedImgCard = null;
+            selectedTextCard = null;
+            updateProgress();
+
+            const leftCol = document.getElementById('left-column');
+            const rightCol = document.getElementById('right-column');
+            leftCol.innerHTML = '';
+            rightCol.innerHTML = '';
+
+            // 随机打乱左侧图片和右侧汉字
+            const shuffledImages = shuffle(GAME_DATA);
+            const shuffledTexts = shuffle(GAME_DATA);
+
+            // 生成左侧图片卡片
+            shuffledImages.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'card card-img';
+                card.dataset.id = item.id;
+                card.dataset.type = 'img';
+                card.draggable = true;
+                card.innerHTML = item.svg;
+
+                // 点击事件
+                card.addEventListener('click', () => handleCardClick(card));
+                
+                // 拖拽事件 (HTML5 Drag and Drop)
+                card.addEventListener('dragstart', handleDragStart);
+                card.addEventListener('dragover', handleDragOver);
+                card.addEventListener('drop', handleDrop);
+
+                leftCol.appendChild(card);
+            });
+
+            // 生成右侧汉字卡片
+            shuffledTexts.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'card card-text';
+                card.dataset.id = item.id;
+                card.dataset.type = 'text';
+                card.innerText = item.word;
+
+                // 点击事件
+                card.addEventListener('click', () => handleCardClick(card));
+
+                // 拖放目标事件
+                card.addEventListener('dragover', handleDragOver);
+                card.addEventListener('drop', handleDrop);
+
+                rightCol.appendChild(card);
+            });
+
+            switchView('game-view');
+        }
+
+        /* --------------------------------------------------
+           4. 配对逻辑 (支持点击与拖拽)
+           -------------------------------------------------- */
+        function handleCardClick(card) {
+            if (card.classList.contains('matched')) return;
+
+            const type = card.dataset.type;
+
+            if (type === 'img') {
+                if (selectedImgCard) selectedImgCard.classList.remove('selected');
+                selectedImgCard = card;
+                selectedImgCard.classList.add('selected');
+            } else if (type === 'text') {
+                if (selectedTextCard) selectedTextCard.classList.remove('selected');
+                selectedTextCard = card;
+                selectedTextCard.classList.add('selected');
+            }
+
+            // 如果左右卡片都被选中，执行判定
+            if (selectedImgCard && selectedTextCard) {
+                checkMatch(selectedImgCard, selectedTextCard);
+            }
+        }
+
+        // HTML5 Drag & Drop 拖拽逻辑
+        function handleDragStart(e) {
+            if (this.classList.contains('matched')) {
+                e.preventDefault();
+                return;
+            }
+            e.dataTransfer.setData('text/plain', this.dataset.id);
+            selectedImgCard = this;
+            this.classList.add('selected');
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault(); // 允许 Drop
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            const targetCard = this;
+
+            if (targetCard.classList.contains('matched')) return;
+
+            // 如果拖放至右侧文字卡片上
+            if (targetCard.dataset.type === 'text' && selectedImgCard) {
+                selectedTextCard = targetCard;
+                checkMatch(selectedImgCard, selectedTextCard);
+            }
+        }
+
+        // 校验配对结果
+        function checkMatch(imgCard, textCard) {
+            const isCorrect = imgCard.dataset.id === textCard.dataset.id;
+
+            if (isCorrect) {
+                // 配对成功
+                imgCard.classList.remove('selected');
+                textCard.classList.remove('selected');
+                imgCard.classList.add('matched');
+                textCard.classList.add('matched');
+
+                imgCard.draggable = false;
+
+                matchedCount++;
+                sounds.playSuccess();
+                showPraiseAnimation();
+                createConfetti(imgCard);
+                updateProgress();
+
+                selectedImgCard = null;
+                selectedTextCard = null;
+
+                // 检查是否全部通关
+                if (matchedCount === totalPairs) {
+                    setTimeout(() => {
+                        sounds.playWin();
+                        triggerFullConfetti();
+                        switchView('result-view');
+                    }, 1000);
+                }
+            } else {
+                // 配对错误
+                sounds.playError();
+                imgCard.classList.add('shake');
+                textCard.classList.add('shake');
+
+                setTimeout(() => {
+                    imgCard.classList.remove('shake', 'selected');
+                    textCard.classList.remove('shake', 'selected');
+                    selectedImgCard = null;
+                    selectedTextCard = null;
+                }, 500);
+            }
+        }
+
+        // 更新进度条
+        function updateProgress() {
+            const fill = document.getElementById('progress-fill');
+            const percent = (matchedCount / totalPairs) * 100;
+            fill.style.width = `${percent}%`;
+        }
+
+        /* --------------------------------------------------
+           5. 夸奖弹窗与绚丽粒子特效
+           -------------------------------------------------- */
+        const praises = ["太棒了！🌟", "你真棒！🎨", "答对啦！🎉", "太厉害了！🚀"];
+
+        function showPraiseAnimation() {
+            const praiseElem = document.getElementById('praise-text');
+            const randomPraise = praises[Math.floor(Math.random() * praises.length)];
+            praiseElem.innerText = randomPraise;
+            praiseElem.classList.add('show');
+
+            setTimeout(() => {
+                praiseElem.classList.remove('show');
+            }, 800);
+        }
+
+        // Canvas 粒子渲染
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = Math.random() * 10 + 6;
+                this.speedX = (Math.random() - 0.5) * 12;
+                this.speedY = (Math.random() - 0.5) * 12 - 3;
+                this.color = ['#ffcf25', '#ff477e', '#06d6a0', '#ff6b35', '#118ab2'][Math.floor(Math.random() * 5)];
+                this.rotation = Math.random() * 360;
+                this.opacity = 1;
+            }
+
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                this.speedY += 0.2; // 重力效果
+                this.opacity -= 0.02;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate((this.rotation * Math.PI) / 180);
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = Math.max(0, this.opacity);
+                ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+                ctx.restore();
+            }
+        }
+
+        function createConfetti(element) {
+            const rect = element.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+
+            for (let i = 0; i < 30; i++) {
+                particles.push(new Particle(centerX, centerY));
+            }
+        }
+
+        function triggerFullConfetti() {
+            for (let i = 0; i < 120; i++) {
+                particles.push(new Particle(Math.random() * canvas.width, Math.random() * canvas.height * 0.5));
+            }
+        }
+
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach((p, index) => {
+                p.update();
+                p.draw();
+                if (p.opacity <= 0) {
+                    particles.splice(index, 1);
+                }
+            });
+            requestAnimationFrame(animateParticles);
+        }
+        animateParticles();
+    </script>
+</body>
+</html>
